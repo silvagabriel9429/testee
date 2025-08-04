@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda Montador de Móveis</title>
+    <link rel="stylesheet" href="style.css"> 
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🔧 Agenda Montador</h1>
+            <p>Gerencie seus agendamentos de montagem de móveis</p>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-button active" onclick="showTab('dashboard', event)">Dashboard</button>
+            <button class="tab-button" onclick="showTab('novo-agendamento', event)">Novo Agendamento</button>
+            <button class="tab-button" onclick="showTab('agenda', event)">Agenda</button>
+            <button class="tab-button" onclick="showTab('calendario', event)">Calendário</button>
+            <button class="tab-button" onclick="showTab('clientes', event)">Clientes</button>
+        </nav>
+
+        <div id="dashboard" class="tab-content active">
+            <h2 style="margin-bottom: 30px; color: #4a5568;">Dashboard</h2>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-agendamentos">0</div>
+                    <div class="stat-label">Total de Agendamentos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="agendamentos-hoje">0</div>
+                    <div class="stat-label">Agendamentos Hoje</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="total-clientes">0</div>
+                    <div class="stat-label">Total de Clientes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="concluidos-mes">0</div>
+                    <div class="stat-label">Concluídos Este Mês</div>
+                </div>
+            </div>
+
+            <h3 style="color: #4a5568; margin-bottom: 20px;">Próximos Agendamentos</h3>
+            <div id="proximos-agendamentos" class="agenda-grid"></div>
+        </div>
+
+        <div id="novo-agendamento" class="tab-content">
+            <h2 style="margin-bottom: 30px; color: #4a5568;">Novo Agendamento</h2>
+            
+            <form id="form-agendamento">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cliente-nome">Nome do Cliente *</label>
+                        <input type="text" id="cliente-nome" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cliente-telefone">Telefone *</label>
+                        <input type="tel" id="cliente-telefone" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="data-agendamento">Data *</label>
+                        <input type="date" id="data-agendamento" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="hora-agendamento">Horário *</label>
+                        <input type="time" id="hora-agendamento" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="endereco">Endereço Completo *</label>
+                    <input type="text" id="endereco" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tipo-servico">Tipo de Serviço *</label>
+                        <select id="tipo-servico" required>
+                            <option value="">Selecione...</option>
+                            <option value="montagem-guarda-roupa">Montagem de Guarda-roupa</option>
+                            <option value="montagem-cozinha">Montagem de Cozinha</option>
+                            <option value="montagem-dormitorio">Montagem de Dormitório</option>
+                            <option value="montagem-escritorio">Montagem de Escritório</option>
+                            <option value="montagem-sala">Montagem de Sala</option>
+                            <option value="desmontagem">Desmontagem</option>
+                            <option value="reparo">Reparo</option>
+                            <option value="outros">Outros</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="valor">Valor (R$)</label>
+                        <input type="number" id="valor" step="0.01" min="0">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="observacoes">Observações</label>
+                    <textarea id="observacoes" placeholder="Detalhes do serviço, móveis específicos, etc."></textarea>
+                </div>
+
+                <button type="submit" class="btn">Salvar Agendamento</button>
+                <button type="button" class="btn" onclick="limparFormulario()">Limpar</button>
+            </form>
+        </div>
+
+        <div id="agenda" class="tab-content">
+            <h2 style="margin-bottom: 30px; color: #4a5568;">Agenda de Serviços</h2>
+            
+            <input type="text" class="search-box" id="search-agenda" placeholder="Buscar por cliente, serviço ou data...">
+            
+            <div class="agenda-grid" id="lista-agendamentos"></div>
+        </div>
+
+        <div id="calendario" class="tab-content">
+            <h2 style="margin-bottom: 30px; color: #4a5568;">Calendário</h2>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <button class="btn" onclick="mudarMes(-1)">← Mês Anterior</button>
+                <h3 id="mes-ano" style="color: #4a5568;"></h3>
+                <button class="btn" onclick="mudarMes(1)">Próximo Mês →</button>
+            </div>
+            
+            <div class="calendar" id="calendario-grid"></div>
+        </div>
+
+        <div id="clientes" class="tab-content">
+            <h2 style="margin-bottom: 30px; color: #4a5568;">Clientes</h2>
+            
+            <input type="text" class="search-box" id="search-clientes" placeholder="Buscar cliente...">
+            
+            <div id="lista-clientes"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script> 
+</body>
+</html>

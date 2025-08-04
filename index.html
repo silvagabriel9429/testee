@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agenda do Montador</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css" rel="stylesheet" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📅 Agenda do Montador</h1>
+      <p class="subtitle">Gerencie seus agendamentos de montagem</p>
+    </header>
+
+    <div class="form-section">
+      <h2>📝 Novo Agendamento</h2>
+      <form id="schedule-form">
+        <!-- informações do cliente -->
+        <div class="client-info">
+          <h3>Informações do Cliente</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="client-name">Nome do Cliente:</label>
+              <input type="text" id="client-name" required placeholder="Ex: João Silva" />
+            </div>
+            <div class="form-group">
+              <label for="client-phone">Telefone:</label>
+              <input type="tel" id="client-phone" placeholder="(11) 99999-9999" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="client-address">Endereço:</label>
+            <input type="text" id="client-address" required placeholder="Rua, número, bairro, cidade" />
+          </div>
+        </div>
+
+        <!-- data e hora -->
+        <div class="schedule-info">
+          <h3>Data e Hora</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="schedule-date">Data:</label>
+              <input type="date" id="schedule-date" required />
+            </div>
+            <div class="form-group">
+              <label for="schedule-time">Hora:</label>
+              <input type="time" id="schedule-time" required />
+            </div>
+          </div>
+        </div>
+
+        <!-- serviços -->
+        <div class="services-section">
+          <h3>🔧 Serviços</h3>
+          <div id="services-container"></div>
+          <button type="button" id="add-service-btn">+ Adicionar Serviço</button>
+        </div>
+
+        <!-- ações -->
+        <div class="form-actions">
+          <button type="submit" class="submit-btn">💾 Salvar Agendamento</button>
+          <button type="button" id="clear-form-btn" class="clear-btn">🗑️ Limpar Formulário</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- lista de agendamentos -->
+    <div class="schedule-list-section">
+      <div id="schedule-count" class="schedule-count"></div>
+      <ul id="schedule-list"></ul>
+      <div id="no-schedules-message" class="no-schedules">
+        <p>📅 Nenhum agendamento cadastrado ainda.</p>
+        <p>Use o formulário acima para adicionar seu primeiro agendamento!</p>
+      </div>
+      <!-- calendário será adicionado aqui -->
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,415 @@
+// Dados em memória
+let agendamentos = [];
+let clientes = [];
+let editandoAgendamento = null;
+let mesAtual = new Date().getMonth();
+let anoAtual = new Date().getFullYear();
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', async function() {
+    await carregarDados();
+    atualizarDashboard();
+    atualizarCalendario();
+    
+    // Configurar data mínima como hoje
+    const hoje = new Date().toISOString().split('T')[0];
+    document.getElementById('data-agendamento').min = hoje;
+    
+    // Event listeners para busca
+    document.getElementById('search-agenda').addEventListener('input', function() {
+        filtrarAgendamentos(this.value);
+    });
+    
+    document.getElementById('search-clientes').addEventListener('input', function() {
+        filtrarClientes(this.value);
+    });
+});
+
+// --- Funções de Utilitário ---
+
+// Armazenamento em Cloud Firestore
+async function salvarDados() {
+    // Esta função agora é um placeholder, pois os dados são salvos individualmente
+    // Vamos salvar agendamentos e clientes diretamente de suas respectivas funções
+    console.log("Salvar dados... (ação ignorada, pois salvamos no Firestore)");
+}
+
+async function carregarDados() {
+    try {
+        const agendamentosCollection = window.db.collection('agendamentos');
+        const agendamentosSnapshot = await agendamentosCollection.get();
+        agendamentos = agendamentosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        const clientesCollection = window.db.collection('clientes');
+        const clientesSnapshot = await clientesCollection.get();
+        clientes = clientesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        console.log('Dados carregados com sucesso do Firestore!');
+    } catch (e) {
+        console.error("Erro ao carregar dados do Firestore: ", e);
+    }
+}
+
+// Formatadores
+function formatarData(dataISO) {
+    if (!dataISO) return '';
+    const [ano, mes, dia] = dataISO.split('-');
+    return `${dia}/${mes}/${ano}`;
+}
+
+function formatarTipoServico(tipo) {
+    const map = {
+        'montagem-guarda-roupa': 'Montagem de Guarda-roupa',
+        'montagem-cozinha': 'Montagem de Cozinha',
+        'montagem-dormitorio': 'Montagem de Dormitório',
+        'montagem-escritorio': 'Montagem de Escritório',
+        'montagem-sala': 'Montagem de Sala',
+        'desmontagem': 'Desmontagem',
+        'reparo': 'Reparo',
+        'outros': 'Outros'
+    };
+    return map[tipo] || tipo;
+}
+
+function formatarStatus(status) {
+    const map = {
+        'agendado': 'Agendado',
+        'em-andamento': 'Em Andamento',
+        'concluido': 'Concluído'
+    };
+    return map[status] || status;
+}
+
+// --- Funções de Navegação e Tabs ---
+
+function showTab(tabName, event) {
+    // Ocultar todas as tabs
+    const tabs = document.querySelectorAll('.tab-content');
+    tabs.forEach(tab => tab.classList.remove('active'));
+    
+    // Remover classe active de todos os botões
+    const buttons = document.querySelectorAll('.tab-button');
+    buttons.forEach(button => button.classList.remove('active'));
+    
+    // Mostrar tab selecionada
+    document.getElementById(tabName).classList.add('active');
+    
+    // Ativar botão correspondente
+    if (event && event.target) { // Verifica se event e event.target existem
+        event.target.classList.add('active');
+    } else { // Se a chamada não veio de um clique no botão (ex: após salvar agendamento)
+        document.querySelector(`.tab-button[onclick*="${tabName}"]`).classList.add('active');
+    }
+    
+    // Atualizar conteúdo específico da tab
+    if (tabName === 'dashboard') {
+        atualizarDashboard();
+    } else if (tabName === 'agenda') {
+        listarAgendamentos();
+    } else if (tabName === 'calendario') {
+        atualizarCalendario();
+    } else if (tabName === 'clientes') {
+        listarClientes();
+    }
+}
+
+// --- Funções de Agendamento ---
+
+document.getElementById('form-agendamento').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    await salvarAgendamento();
+});
+
+async function salvarAgendamento() {
+    const agendamento = {
+        clienteNome: document.getElementById('cliente-nome').value,
+        clienteTelefone: document.getElementById('cliente-telefone').value,
+        data: document.getElementById('data-agendamento').value,
+        hora: document.getElementById('hora-agendamento').value,
+        endereco: document.getElementById('endereco').value,
+        tipoServico: document.getElementById('tipo-servico').value,
+        valor: parseFloat(document.getElementById('valor').value) || 0,
+        observacoes: document.getElementById('observacoes').value,
+        status: editandoAgendamento ? editandoAgendamento.status : 'agendado',
+        criadoEm: editandoAgendamento ? editandoAgendamento.criadoEm : new Date().toISOString()
+    };
+
+    try {
+        if (editandoAgendamento) {
+            await window.db.collection('agendamentos').doc(editandoAgendamento.id).update(agendamento);
+            alert('Agendamento atualizado com sucesso!');
+        } else {
+            const docRef = await window.db.collection('agendamentos').add(agendamento);
+            agendamento.id = docRef.id;
+            alert('Agendamento salvo com sucesso!');
+        }
+        
+        await adicionarOuAtualizarCliente(agendamento.clienteNome, agendamento.clienteTelefone);
+
+        limparFormulario();
+        editandoAgendamento = null;
+        await carregarDados(); // Recarrega os dados do Firestore
+        atualizarDashboard();
+        atualizarCalendario();
+        listarAgendamentos();
+        listarClientes();
+        showTab('agenda');
+    } catch (e) {
+        console.error("Erro ao salvar agendamento: ", e);
+        alert('Ocorreu um erro ao salvar o agendamento.');
+    }
+}
+
+function limparFormulario() {
+    document.getElementById('form-agendamento').reset();
+    editandoAgendamento = null;
+}
+
+async function editarAgendamento(id) {
+    await carregarDados(); // Garante que os dados estão atualizados
+    const agendamento = agendamentos.find(a => a.id === id);
+    if (!agendamento) return;
+
+    editandoAgendamento = agendamento;
+    
+    document.getElementById('cliente-nome').value = agendamento.clienteNome;
+    document.getElementById('cliente-telefone').value = agendamento.clienteTelefone;
+    document.getElementById('data-agendamento').value = agendamento.data;
+    document.getElementById('hora-agendamento').value = agendamento.hora;
+    document.getElementById('endereco').value = agendamento.endereco;
+    document.getElementById('tipo-servico').value = agendamento.tipoServico;
+    document.getElementById('valor').value = agendamento.valor;
+    document.getElementById('observacoes').value = agendamento.observacoes;
+
+    showTab('novo-agendamento');
+}
+
+async function alterarStatus(id) {
+    const agendamento = agendamentos.find(a => a.id === id);
+    if (!agendamento) return;
+
+    const statusOptions = ['agendado', 'em-andamento', 'concluido'];
+    const currentIndex = statusOptions.indexOf(agendamento.status);
+    const nextIndex = (currentIndex + 1) % statusOptions.length;
+    
+    const novoStatus = statusOptions[nextIndex];
+    try {
+        await window.db.collection('agendamentos').doc(id).update({ status: novoStatus });
+        await carregarDados();
+        listarAgendamentos();
+        atualizarDashboard();
+        atualizarCalendario();
+    } catch (e) {
+        console.error("Erro ao alterar status: ", e);
+    }
+}
+
+async function excluirAgendamento(id) {
+    if (confirm('Tem certeza que deseja excluir este agendamento?')) {
+        try {
+            await window.db.collection('agendamentos').doc(id).delete();
+            alert('Agendamento excluído com sucesso!');
+            await carregarDados();
+            listarAgendamentos();
+            atualizarDashboard();
+            atualizarCalendario();
+        } catch (e) {
+            console.error("Erro ao excluir agendamento: ", e);
+            alert('Ocorreu um erro ao excluir o agendamento.');
+        }
+    }
+}
+
+// --- Funções de Cliente ---
+
+async function adicionarOuAtualizarCliente(nome, telefone) {
+    const clientesRef = window.db.collection('clientes');
+    const querySnapshot = await clientesRef.where('telefone', '==', telefone).get();
+
+    if (querySnapshot.empty) {
+        await clientesRef.add({
+            nome: nome,
+            telefone: telefone,
+            criadoEm: new Date().toISOString()
+        });
+    } else {
+        const clienteDoc = querySnapshot.docs[0];
+        if (clienteDoc.data().nome !== nome) {
+            await clienteDoc.ref.update({ nome: nome });
+        }
+    }
+}
+
+function listarClientes(filtro = '') {
+    const container = document.getElementById('lista-clientes');
+    container.innerHTML = '';
+
+    let clientesFiltrados = clientes;
+    
+    if (filtro) {
+        clientesFiltrados = clientes.filter(c => 
+            c.nome.toLowerCase().includes(filtro.toLowerCase()) ||
+            c.telefone.includes(filtro)
+        );
+    }
+
+    if (clientesFiltrados.length === 0) {
+        container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">Nenhum cliente encontrado.</p>';
+        return;
+    }
+
+    clientesFiltrados.sort((a, b) => a.nome.localeCompare(b.nome)).forEach(cliente => {
+        const div = document.createElement('div');
+        div.className = 'client-card';
+        div.innerHTML = `
+            <h3>${cliente.nome}</h3>
+            <p><strong>Telefone:</strong> ${cliente.telefone}</p>
+            <p><strong>Desde:</strong> ${formatarData(cliente.criadoEm.split('T')[0])}</p>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function filtrarClientes(filtro) {
+    listarClientes(filtro);
+}
+
+// --- Funções do Dashboard ---
+
+function atualizarDashboard() {
+    const hoje = new Date().toISOString().split('T')[0];
+    const mesAtualDate = new Date();
+    const primeiroDiaMes = new Date(mesAtualDate.getFullYear(), mesAtualDate.getMonth(), 1);
+    const ultimoDiaMes = new Date(mesAtualDate.getFullYear(), mesAtualDate.getMonth() + 1, 0);
+
+    const mesAtualStart = primeiroDiaMes.toISOString().split('T')[0];
+    const mesAtualEnd = ultimoDiaMes.toISOString().split('T')[0];
+
+    // Estatísticas
+    document.getElementById('total-agendamentos').textContent = agendamentos.length;
+    document.getElementById('agendamentos-hoje').textContent = 
+        agendamentos.filter(a => a.data === hoje && a.status !== 'concluido').length;
+    document.getElementById('total-clientes').textContent = clientes.length;
+    document.getElementById('concluidos-mes').textContent = 
+        agendamentos.filter(a => a.status === 'concluido' && a.data >= mesAtualStart && a.data <= mesAtualEnd).length;
+
+    // Próximos agendamentos
+    const proximosAgendamentos = agendamentos
+        .filter(a => new Date(a.data) >= new Date(hoje) && a.status !== 'concluido')
+        .sort((a, b) => new Date(a.data + ' ' + a.hora) - new Date(b.data + ' ' + b.hora))
+        .slice(0, 5);
+
+    const container = document.getElementById('proximos-agendamentos');
+    container.innerHTML = '';
+
+    if (proximosAgendamentos.length === 0) {
+        container.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">Nenhum agendamento próximo.</p>';
+        return;
+    }
+
+    proximosAgendamentos.forEach(agendamento => {
+        const div = document.createElement('div');
+        div.className = 'agenda-item';
+        div.innerHTML = `
+            <h3>${agendamento.clienteNome}</h3>
+            <p><strong>Data:</strong> ${formatarData(agendamento.data)} às ${agendamento.hora}</p>
+            <p><strong>Serviço:</strong> ${formatarTipoServico(agendamento.tipoServico)}</p>
+            <p><strong>Endereço:</strong> ${agendamento.endereco}</p>
+            <span class="status ${agendamento.status}">${formatarStatus(agendamento.status)}</span>
+        `;
+        container.appendChild(div);
+    });
+}
+
+// --- Funções do Calendário ---
+
+function atualizarCalendario() {
+    const container = document.getElementById('calendario-grid');
+    container.innerHTML = '';
+
+    const meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+
+    document.getElementById('mes-ano').textContent = `${meses[mesAtual]} ${anoAtual}`;
+
+    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    
+    // Cabeçalho do calendário
+    diasSemana.forEach(dia => {
+        const div = document.createElement('div');
+        div.className = 'calendar-header';
+        div.textContent = dia;
+        container.appendChild(div);
+    });
+
+    const primeiroDiaDoMes = new Date(anoAtual, mesAtual, 1);
+    const ultimoDiaDoMes = new Date(anoAtual, mesAtual + 1, 0);
+    const inicioCalendario = primeiroDiaDoMes.getDay();
+
+    // Dias vazios do início do mês
+    for (let i = 0; i < inicioCalendario; i++) {
+        const div = document.createElement('div');
+        div.className = 'calendar-day';
+        container.appendChild(div);
+    }
+
+    // Dias do mês
+    for (let dia = 1; dia <= ultimoDiaDoMes.getDate(); dia++) {
+        const div = document.createElement('div');
+        div.className = 'calendar-day';
+        
+        const dataFormatada = `${anoAtual}-${String(mesAtual + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+        const agendamentosDoDia = agendamentos.filter(a => a.data === dataFormatada);
+        
+        let appointmentDotsHtml = '';
+        if (agendamentosDoDia.length > 0) {
+            div.classList.add('has-appointment');
+            appointmentDotsHtml = agendamentosDoDia.map(() => '<div class="appointment-dot"></div>').join('');
+        }
+
+        div.innerHTML = `
+            <div>${dia}</div>
+            <div>${appointmentDotsHtml}</div>
+        `;
+        div.dataset.date = dataFormatada;
+        div.onclick = () => mostrarAgendamentosDoDia(dataFormatada);
+        container.appendChild(div);
+    }
+}
+
+function mudarMes(offset) {
+    mesAtual += offset;
+    if (mesAtual > 11) {
+        mesAtual = 0;
+        anoAtual++;
+    } else if (mesAtual < 0) {
+        mesAtual = 11;
+        anoAtual--;
+    }
+    atualizarCalendario();
+}
+
+function mostrarAgendamentosDoDia(data) {
+    const agendamentosDoDia = agendamentos.filter(a => a.data === data);
+    let detalhes = `Agendamentos para ${formatarData(data)}:\n\n`;
+
+    if (agendamentosDoDia.length === 0) {
+        detalhes += 'Nenhum agendamento para este dia.';
+    } else {
+        agendamentosDoDia.sort((a, b) => a.hora.localeCompare(b.hora)).forEach(ag => {
+            detalhes += `
+- Cliente: ${ag.clienteNome}
+  Horário: ${ag.hora}
+  Serviço: ${formatarTipoServico(ag.tipoServico)}
+  Endereço: ${ag.endereco}
+  Status: ${formatarStatus(ag.status)}
+  Valor: R$ ${ag.valor.toFixed(2)}
+  Observações: ${ag.observacoes || 'N/A'}
+------------------------------------------
+            `;
+        });
+    }
+    alert(detalhes);
+}
